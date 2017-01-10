@@ -1,14 +1,19 @@
-FROM ubuntu:14.04
-MAINTAINER Paul Valla <paul.valla+docker@gmail.com>
+FROM       ubuntu:14.04
+MAINTAINER Aleksandar Diklic "https://github.com/rastasheep"
 
-ENV DEBIAN_FRONTEND noninteractive
-ENV HTTPD_USER www-data
-
+# install unzip openssh-server nginx php5 imagemagick ..
 RUN apt-get update && apt-get install -y \
   nginx php5-fpm supervisor \
   wget unzip patch acl \
   libav-tools imagemagick \
+  openssh-server \
+  software-properties-common \
+  python-software-properties \
   graphicsmagick zip unzip php5-gd
+RUN add-apt-repository ppa:alessandro-strada/ppa  
+
+ENV DEBIAN_FRONTEND noninteractive
+ENV HTTPD_USER www-data
 
 # install h5ai and patch configuration
 ENV H5AI_VERSION 0.29.0+002~140eb30
@@ -32,9 +37,17 @@ RUN chown ${HTTPD_USER} /usr/share/h5ai/_h5ai/private/cache/
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 CMD supervisord -c /etc/supervisor/conf.d/supervisord.conf
 
+# install openssh-sever rootpass
+RUN mkdir /var/run/sshd
+RUN echo 'root:root' |chpasswd
+
+RUN sed -ri 's/^PermitRootLogin\s+.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
+
 # expose only nginx HTTP port
-EXPOSE 80 443
+EXPOSE 80 443 22
 
 # expose path
 VOLUME /var/www
 
+CMD    ["/usr/sbin/sshd", "-D"]
